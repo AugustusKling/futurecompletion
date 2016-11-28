@@ -1,16 +1,22 @@
 package com.github.augustuskling.futurecompletion;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 import javax.annotation.CheckReturnValue;
@@ -430,5 +436,52 @@ public class FutureCompletion<T> implements CompletionStage<T> {
 			Executor executor) {
 		return toFutureCompletion(CompletableFuture.supplyAsync(supplier,
 				executor));
+	}
+
+	/**
+	 * Creates stage that awaits completion of all passed stages and collects
+	 * results.
+	 * 
+	 * @param stages
+	 *            Result providers.
+	 * @return Stage containing results of passed stages in the same order as
+	 *         parameter {@code stages}. In case any passed stage completes
+	 *         exceptionally, the returned stages completes exceptionally with
+	 *         the same exception.
+	 */
+	@CheckReturnValue
+	public static <ValueType, AnyStage extends CompletionStage<? extends ValueType>> FutureCompletion<List<ValueType>> transpose(
+			Collection<AnyStage> stages) {
+		if (stages.isEmpty()) {
+			return FutureCompletion.completedFutureCompletion(Collections
+					.emptyList());
+		}
+
+		int size = stages.size();
+		AtomicInteger unresolved = new AtomicInteger(size);
+		@SuppressWarnings("null")
+		List<ValueType> results = new ArrayList<>(Collections.nCopies(size,
+				(ValueType) null));
+		FutureCompletionPromise<List<ValueType>> p = new FutureCompletionPromise<>();
+
+		IntFunction<BiConsumer<ValueType, Throwable>> generateResolver = i -> (
+				value, throwable) -> {
+			if (throwable != null) {
+				p.completeExceptionally(throwable);
+			} else {
+				results.set(i, value);
+				if (unresolved.decrementAndGet() == 0) {
+					p.complete(results);
+				}
+			}
+		};
+		int i = 0;
+		Iterator<AnyStage> iter = stages.iterator();
+		while (iter.hasNext()) {
+			iter.next().whenComplete(generateResolver.apply(i));
+			i++;
+		}
+
+		return p.toFutureCompletion();
 	}
 }
