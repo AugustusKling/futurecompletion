@@ -8,10 +8,11 @@ import static org.junit.Assert.fail;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import net.jodah.concurrentunit.Waiter;
 
 import org.junit.Test;
-
-import com.github.augustuskling.futurecompletion.FutureCompletion;
 
 public class HandleComposeTest {
 
@@ -59,29 +60,30 @@ public class HandleComposeTest {
 
 	@Test
 	public void handleComposeLaterResolvedSuccessToFailure()
-			throws InterruptedException {
-		CountDownLatch latch = new CountDownLatch(1);
+			throws TimeoutException {
+		Waiter waiter = new Waiter();
 
 		CompletableFuture<String> fut = new CompletableFuture<>();
 		FutureCompletion<String> fc = FutureCompletion.toFutureCompletion(fut);
 		FutureCompletion<String> changed = fc.handleCompose((result, th) -> {
-			assertEquals("test", result);
+			waiter.assertEquals("test", result);
+			waiter.resume();
 			return FutureCompletion.failedFutureCompletion(new Exception(
 					"testfailure"));
 		});
 
 		changed.thenAccept(value -> {
-			fail();
+			waiter.fail();
 		});
 		changed.whenComplete((value, throwable) -> {
-			assertNull(value);
-			assertEquals("testfailure", throwable.getMessage());
-			latch.countDown();
+			waiter.assertNull(value);
+			waiter.assertEquals("testfailure", throwable.getMessage());
+			waiter.resume();
 		});
 
 		fut.complete("test");
 
-		assertTrue(latch.await(1, TimeUnit.SECONDS));
+		waiter.await(1, TimeUnit.SECONDS, 2);
 	}
 
 	@Test

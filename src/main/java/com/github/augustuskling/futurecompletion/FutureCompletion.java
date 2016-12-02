@@ -252,6 +252,29 @@ public class FutureCompletion<T> implements CompletionStage<T> {
 		return toFutureCompletion(delegate.exceptionally(fn));
 	}
 
+	@CheckReturnValue
+	public FutureCompletion<T> exceptionallyCompose(
+	// Ideally, fn would be able to map to any CompletionStage but this overly
+	// restrictive since Java has no syntax to derive common supertypes which
+	// share a bound with an instance-level generic type.
+			Function<Throwable, ? extends CompletionStage<T>> fn) {
+		CompletableFuture<T> fut = new CompletableFuture<>();
+		whenComplete((result, th) -> {
+			if (th != null) {
+				fn.apply(th).whenComplete((result2, th2) -> {
+					if (th2 != null) {
+						fut.completeExceptionally(th2);
+					} else {
+						fut.complete(result2);
+					}
+				});
+			} else {
+				fut.complete(result);
+			}
+		});
+		return toFutureCompletion(fut);
+	}
+
 	@Override
 	public FutureCompletion<T> whenComplete(
 			BiConsumer<? super T, ? super Throwable> action) {
@@ -359,7 +382,7 @@ public class FutureCompletion<T> implements CompletionStage<T> {
 	@CheckReturnValue
 	public static <T> FutureCompletion<T> toFutureCompletion(
 			CompletionStage<T> delegate) {
-		return new FutureCompletion<T>(delegate);
+		return new FutureCompletion<>(delegate);
 	}
 
 	@CheckReturnValue
@@ -376,20 +399,70 @@ public class FutureCompletion<T> implements CompletionStage<T> {
 	}
 
 	@CheckReturnValue
-	public static FutureCompletion<Void> allOf(CompletableFuture<?>... cfs) {
-		return toFutureCompletion(CompletableFuture.allOf(cfs));
+	public static <MostSpecificSupertype, T0 extends MostSpecificSupertype, T1 extends MostSpecificSupertype> FutureCompletion2<MostSpecificSupertype, T0, T1> allOf(
+			CompletionStage<T0> c0, CompletionStage<T1> c1) {
+		return new FutureCompletion2<>(allOf(Arrays.asList(c0, c1)));
 	}
 
 	@CheckReturnValue
-	public static FutureCompletion<Void> allOf(CompletionStage<?>... cfs) {
-		return toFutureCompletion(CompletableFuture
-				.allOf(toCompletableFutureArray(cfs)));
+	public static <MostSpecificSupertype, T0 extends MostSpecificSupertype, T1 extends MostSpecificSupertype, T2 extends MostSpecificSupertype> FutureCompletion3<MostSpecificSupertype, T0, T1, T2> allOf(
+			CompletionStage<T0> c0, CompletionStage<T1> c1,
+			CompletionStage<T2> c2) {
+		return new FutureCompletion3<>(allOf(Arrays.asList(c0, c1, c2)));
 	}
 
+	@SafeVarargs
 	@CheckReturnValue
-	public static FutureCompletion<Void> allOf(
-			Collection<CompletableFuture<?>> cfs) {
-		return allOf(cfs.toArray(new CompletableFuture[cfs.size()]));
+	public static <ValueType, AnyStage extends CompletionStage<? extends ValueType>> FutureCompletion<List<ValueType>> allOf(
+			AnyStage... cfs) {
+		return allOf(Arrays.asList(cfs));
+	}
+
+	/**
+	 * Creates stage that awaits completion of all passed stages and collects
+	 * results.
+	 * 
+	 * @param stages
+	 *            Result providers.
+	 * @return Stage containing results of passed stages in the same order as
+	 *         parameter {@code stages}. In case any passed stage completes
+	 *         exceptionally, the returned stages completes exceptionally with
+	 *         the same exception.
+	 */
+	@CheckReturnValue
+	public static <ValueType, AnyStage extends CompletionStage<? extends ValueType>> FutureCompletion<List<ValueType>> allOf(
+			Collection<AnyStage> stages) {
+		if (stages.isEmpty()) {
+			return FutureCompletion.completedFutureCompletion(Collections
+					.emptyList());
+		}
+
+		int size = stages.size();
+		AtomicInteger unresolved = new AtomicInteger(size);
+		@SuppressWarnings("null")
+		List<ValueType> results = new ArrayList<>(Collections.nCopies(size,
+				(ValueType) null));
+		FutureCompletionPromise<List<ValueType>> p = new FutureCompletionPromise<>();
+
+		IntFunction<BiConsumer<ValueType, Throwable>> generateResolver = i -> (
+				value, throwable) -> {
+			if (throwable != null) {
+				p.completeExceptionally(throwable);
+			} else {
+				results.set(i, value);
+				if (unresolved.decrementAndGet() == 0) {
+					p.complete(results);
+				}
+			}
+		};
+		int i = 0;
+		Iterator<AnyStage> iter = stages.iterator();
+		while (iter.hasNext()) {
+			iter.next().whenComplete(generateResolver.apply(i));
+			i++;
+		}
+
+		return p.toFutureCompletion();
 	}
 
 	@CheckReturnValue
@@ -436,52 +509,5 @@ public class FutureCompletion<T> implements CompletionStage<T> {
 			Executor executor) {
 		return toFutureCompletion(CompletableFuture.supplyAsync(supplier,
 				executor));
-	}
-
-	/**
-	 * Creates stage that awaits completion of all passed stages and collects
-	 * results.
-	 * 
-	 * @param stages
-	 *            Result providers.
-	 * @return Stage containing results of passed stages in the same order as
-	 *         parameter {@code stages}. In case any passed stage completes
-	 *         exceptionally, the returned stages completes exceptionally with
-	 *         the same exception.
-	 */
-	@CheckReturnValue
-	public static <ValueType, AnyStage extends CompletionStage<? extends ValueType>> FutureCompletion<List<ValueType>> transpose(
-			Collection<AnyStage> stages) {
-		if (stages.isEmpty()) {
-			return FutureCompletion.completedFutureCompletion(Collections
-					.emptyList());
-		}
-
-		int size = stages.size();
-		AtomicInteger unresolved = new AtomicInteger(size);
-		@SuppressWarnings("null")
-		List<ValueType> results = new ArrayList<>(Collections.nCopies(size,
-				(ValueType) null));
-		FutureCompletionPromise<List<ValueType>> p = new FutureCompletionPromise<>();
-
-		IntFunction<BiConsumer<ValueType, Throwable>> generateResolver = i -> (
-				value, throwable) -> {
-			if (throwable != null) {
-				p.completeExceptionally(throwable);
-			} else {
-				results.set(i, value);
-				if (unresolved.decrementAndGet() == 0) {
-					p.complete(results);
-				}
-			}
-		};
-		int i = 0;
-		Iterator<AnyStage> iter = stages.iterator();
-		while (iter.hasNext()) {
-			iter.next().whenComplete(generateResolver.apply(i));
-			i++;
-		}
-
-		return p.toFutureCompletion();
 	}
 }
