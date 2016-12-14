@@ -398,17 +398,96 @@ public class FutureCompletion<T> implements CompletionStage<T> {
 		return toFutureCompletion(fut);
 	}
 
+	/**
+	 * Creates stage that awaits completion of both passed stages and collects
+	 * results.
+	 * 
+	 * @param c0
+	 *            A stage to await.
+	 * @param c1
+	 *            Another stage to await.
+	 * @return Stage containing results of passed stages in the same order as
+	 *         the given parameter. In case any passed stage completes
+	 *         exceptionally, the returned stage completes exceptionally with
+	 *         the same exception.
+	 */
 	@CheckReturnValue
 	public static <MostSpecificSupertype, T0 extends MostSpecificSupertype, T1 extends MostSpecificSupertype> FutureCompletion2<MostSpecificSupertype, T0, T1> allOf(
 			CompletionStage<T0> c0, CompletionStage<T1> c1) {
 		return new FutureCompletion2<>(allOf(Arrays.asList(c0, c1)));
 	}
 
+	/**
+	 * Creates stage that awaits completion of three passed stages and collects
+	 * results.
+	 * 
+	 * @param c0
+	 *            A stage to await.
+	 * @param c1
+	 *            Another stage to await.
+	 * @param c2
+	 *            Another stage to await.
+	 * @return Stage containing results of passed stages in the same order as
+	 *         the given parameter. In case any passed stage completes
+	 *         exceptionally, the returned stage completes exceptionally with
+	 *         the same exception.
+	 */
 	@CheckReturnValue
 	public static <MostSpecificSupertype, T0 extends MostSpecificSupertype, T1 extends MostSpecificSupertype, T2 extends MostSpecificSupertype> FutureCompletion3<MostSpecificSupertype, T0, T1, T2> allOf(
 			CompletionStage<T0> c0, CompletionStage<T1> c1,
 			CompletionStage<T2> c2) {
 		return new FutureCompletion3<>(allOf(Arrays.asList(c0, c1, c2)));
+	}
+
+	/**
+	 * Creates stage that awaits completion of four passed stages and collects
+	 * results.
+	 * 
+	 * @param c0
+	 *            A stage to await.
+	 * @param c1
+	 *            Another stage to await.
+	 * @param c2
+	 *            Another stage to await.
+	 * @param c3
+	 *            Another stage to await.
+	 * @return Stage containing results of passed stages in the same order as
+	 *         the given parameter. In case any passed stage completes
+	 *         exceptionally, the returned stage completes exceptionally with
+	 *         the same exception.
+	 */
+	@CheckReturnValue
+	public static <MostSpecificSupertype, T0 extends MostSpecificSupertype, T1 extends MostSpecificSupertype, T2 extends MostSpecificSupertype, T3 extends MostSpecificSupertype> FutureCompletion4<MostSpecificSupertype, T0, T1, T2, T3> allOf(
+			CompletionStage<T0> c0, CompletionStage<T1> c1,
+			CompletionStage<T2> c2, CompletionStage<T3> c3) {
+		return new FutureCompletion4<>(allOf(Arrays.asList(c0, c1, c2, c3)));
+	}
+
+	/**
+	 * Creates stage that awaits completion of five passed stages and collects
+	 * results.
+	 * 
+	 * @param c0
+	 *            A stage to await.
+	 * @param c1
+	 *            Another stage to await.
+	 * @param c2
+	 *            Another stage to await.
+	 * @param c3
+	 *            Another stage to await.
+	 * @param c4
+	 *            Another stage to await.
+	 * @return Stage containing results of passed stages in the same order as
+	 *         the given parameter. In case any passed stage completes
+	 *         exceptionally, the returned stage completes exceptionally with
+	 *         the same exception.
+	 */
+	@CheckReturnValue
+	public static <MostSpecificSupertype, T0 extends MostSpecificSupertype, T1 extends MostSpecificSupertype, T2 extends MostSpecificSupertype, T3 extends MostSpecificSupertype, T4 extends MostSpecificSupertype> FutureCompletion5<MostSpecificSupertype, T0, T1, T2, T3, T4> allOf(
+			CompletionStage<T0> c0, CompletionStage<T1> c1,
+			CompletionStage<T2> c2, CompletionStage<T3> c3,
+			CompletionStage<T4> c4) {
+		return new FutureCompletion5<>(allOf(Arrays.asList(c0, c1, c2, c3, c4)));
 	}
 
 	@SafeVarargs
@@ -426,7 +505,7 @@ public class FutureCompletion<T> implements CompletionStage<T> {
 	 *            Result providers.
 	 * @return Stage containing results of passed stages in the same order as
 	 *         parameter {@code stages}. In case any passed stage completes
-	 *         exceptionally, the returned stages completes exceptionally with
+	 *         exceptionally, the returned stage completes exceptionally with
 	 *         the same exception.
 	 */
 	@CheckReturnValue

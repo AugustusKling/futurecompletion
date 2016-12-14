@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import javax.annotation.CheckReturnValue;
 
@@ -21,16 +22,20 @@ public class FutureCompletion2<MostSpecificSupertype, T0, T1> extends
 		return thenAccept(l -> fn.accept((T0) l.get(0), (T1) l.get(1)));
 	}
 
-	@SuppressWarnings("unchecked")
 	@CheckReturnValue
 	public <U> FutureCompletion<U> thenApply(BiFunction<T0, T1, ? extends U> fn) {
-		return thenApply(l -> fn.apply((T0) l.get(0), (T1) l.get(1)));
+		return thenApply(apply(fn));
 	}
 
-	@SuppressWarnings("unchecked")
 	@CheckReturnValue
 	public <U> FutureCompletion<U> thenCompose(
 			BiFunction<T0, T1, ? extends CompletionStage<U>> fn) {
-		return thenCompose(l -> fn.apply((T0) l.get(0), (T1) l.get(1)));
+		return thenCompose(apply(fn));
+	}
+
+	@SuppressWarnings("unchecked")
+	private <U> Function<? super List<MostSpecificSupertype>, ? extends U> apply(
+			BiFunction<T0, T1, ? extends U> fn) {
+		return l -> fn.apply((T0) l.get(0), (T1) l.get(1));
 	}
 }
